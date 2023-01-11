@@ -1,0 +1,90 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="utf-8" />
+<title>Proxy Advertisement</title>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<style>
+  body, html, main, iframe {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    width: 100%;
+    overflow: visible;
+  }
+
+  iframe {
+    height: 80vh;
+  }
+
+  header {
+    margin: 0;
+    padding: 0.2rem;
+    font-family: sans-serif;
+    background: #e1e1e1;
+    color: #777
+  }
+
+  h1, p {
+    font-size: 0.6rem;
+    margin: 0.2rem;
+    padding: 0;
+  }
+</style>
+<main></main>
+<script>
+  "use strict";
+
+  async function sendReports(reports) {
+    for (let report of reports) {
+      // Log the `report` json via your own reporting process
+      window.parent.postMessage(JSON.stringify(report, null, 2), '*');
+      // Don't attempt fetch or other requests within the beforeunload / unload events
+      navigator.sendBeacon("/", report);
+    }
+  }
+
+  const observer = new ReportingObserver((reports, observer) => {
+    sendReports(reports);
+  }, { buffered: true });
+  observer.observe();
+
+  window.addEventListener('unload', (event) => {
+    let reports = observer.takeRecords();
+    sendReports(reports);
+  });
+
+  // create an iframe for the add
+  const frame = document.createElement('iframe');
+  frame.setAttribute('allow', 'autoplay');
+  frame.setAttribute('id', 'adFrame');
+  frame.style.height = '600px';
+  frame.style.width = '600px';
+
+  let iframeSrc = './empty/adunit.html';
+  const urlParams = new URLSearchParams(window.location.search);
+
+  if (urlParams.get('site')) {
+    // or load the user's content
+    iframeSrc = urlParams.get('site');
+  }
+
+  // update the iframe URL and add it to the page
+  frame.src = iframeSrc;
+  document.querySelector('main').appendChild(frame);
+
+  // Simple reporting mechanism that's just awaiting a postMessage from the ad frame
+  const completedMessage = document.createElement('pre');
+  completedMessage.id = 'completedArea';
+  completedMessage.textContent = '';
+  document.querySelector('main').appendChild(completedMessage);
+
+  // Handle incoming messages from the iframes
+  function handlePostMessage(event) {
+    console.log("Event from ad ", event.data.code);
+    if(event.data && event.data.code === "Completed")
+    completedMessage.textContent += '\n' + JSON.stringify(event.data);
+  }
+
+  window.addEventListener('message', handlePostMessage, false);
+</script>
